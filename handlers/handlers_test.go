@@ -71,7 +71,7 @@ func MakeTestRanch(resources []runtime.Object) *ranch.Ranch {
 	}
 	client := &onceConflictingClient{Client: fakectrlruntimeclient.NewFakeClient(resources...)}
 	s := ranch.NewTestingStorage(client, ns, func() metav1.Time { return fakeNow })
-	r, _ := ranch.NewRanch("", s, testTTL)
+	r, _ := ranch.NewRanch("", false, s, testTTL)
 	return r
 }
 

@@ -32,12 +32,14 @@ import (
 
 	"sigs.k8s.io/boskos/common"
 	"sigs.k8s.io/boskos/crds"
+	"sigs.k8s.io/boskos/external"
 )
 
 // Ranch is the place which all of the Resource objects lives.
 type Ranch struct {
-	Storage    *Storage
-	requestMgr *RequestManager
+	Storage        *Storage
+	requestMgr     *RequestManager
+	externalClient *external.ExternalClient
 	//
 	now func() metav1.Time
 }
@@ -114,7 +116,7 @@ type acquireRequestPriorityKey struct {
 // Out: A valid Resource object and the time when the resource was originally requested on success, or
 //
 //	ResourceNotFound error if target type resource does not exist in target state.
-func (r *Ranch) Acquire(rType, state, dest, owner, requestID string) (*crds.ResourceObject, metav1.Time, error) {
+func (r *Ranch) Acquire(rType, state, dest, owner, requestID string, filter bool) (*crds.ResourceObject, metav1.Time, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"type":       rType,
 		"state":      state,
@@ -136,6 +138,15 @@ func (r *Ranch) Acquire(rType, state, dest, owner, requestID string) (*crds.Reso
 			logger.WithError(err).Errorf("could not get resources")
 			return &ResourceNotFound{rType}
 		}
+
+		if filter {
+			r.externalClient = getExternalClient(rType)
+			resources, err = r.externalClient.FilterResources(resources)
+			if err != nil {
+				return err
+			}
+		}
+
 		logger.Debugf("Considering %d resources.", len(resources.Items))
 
 		// For request priority we need to go over all the list until a matching rank
@@ -197,6 +208,14 @@ func (r *Ranch) Acquire(rType, state, dest, owner, requestID string) (*crds.Reso
 	}
 
 	return returnRes, createdTime, nil
+}
+
+func createExternalClient(rType string) {
+	switch rType {
+	case "powervs-workspace":
+
+	}
+
 }
 
 func addResource(new bool, logger *logrus.Entry, r *Ranch, rType string, typeCount int) {

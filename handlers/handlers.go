@@ -118,6 +118,7 @@ func init() {
 //			Required: owner=[string] : requester of the resource
 func handleAcquire(r *ranch.Ranch) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		var filterResources bool
 		logrus.WithField("handler", "handleStart").Infof("From %v", req.RemoteAddr)
 
 		if req.Method != http.MethodPost {
@@ -132,6 +133,7 @@ func handleAcquire(r *ranch.Ranch) http.HandlerFunc {
 		state := req.URL.Query().Get("state")
 		dest := req.URL.Query().Get("dest")
 		owner := req.URL.Query().Get("owner")
+		filter := req.URL.Query().Get("filter")
 		requestID := req.URL.Query().Get("request_id")
 		if rtype == "" || state == "" || dest == "" || owner == "" {
 			bre := badRequestError(fmt.Sprintf("Type: %v, state: %v, dest: %v, owner: %v, all of them must be set in the request.", rtype, state, dest, owner))
@@ -139,9 +141,13 @@ func handleAcquire(r *ranch.Ranch) http.HandlerFunc {
 			return
 		}
 
+		if filter == "" {
+			filterResources = true
+		}
+
 		logrus.Infof("Request for a %v %v from %v, dest %v", state, rtype, owner, dest)
 
-		resource, createdTime, err := r.Acquire(rtype, state, dest, owner, requestID)
+		resource, createdTime, err := r.Acquire(rtype, state, dest, owner, requestID, filterResources)
 		if err != nil {
 			returnAndLogError(res, err, "Acquire failed")
 			return

@@ -36,14 +36,16 @@ import (
 
 	"sigs.k8s.io/boskos/common"
 	"sigs.k8s.io/boskos/crds"
+	"sigs.k8s.io/boskos/external"
 )
 
 // Storage is used to decouple ranch functionality with the resource persistence layer
 type Storage struct {
-	ctx           context.Context
-	client        ctrlruntimeclient.Client
-	namespace     string
-	resourcesLock sync.RWMutex
+	ctx            context.Context
+	client         ctrlruntimeclient.Client
+	externalClient external.ExternalClient
+	namespace      string
+	resourcesLock  sync.RWMutex
 
 	// For testing
 	now          func() metav1.Time
@@ -113,6 +115,14 @@ func (s *Storage) GetResource(name string) (*crds.ResourceObject, error) {
 
 	return o, nil
 }
+
+// func (s *Storage) FilterResources(resources *crds.ResourceObjectList) (*crds.ResourceObjectList, error) {
+// 	resourceList := &crds.ResourceObjectList{}
+
+// 	s.
+
+// 	return resourceList, nil
+// }
 
 // GetResources list all resources
 func (s *Storage) GetResources() (*crds.ResourceObjectList, error) {
