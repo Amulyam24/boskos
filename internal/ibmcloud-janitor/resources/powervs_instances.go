@@ -32,11 +32,11 @@ type PowerVSInstance struct {
 }
 
 // Creates a new PowerVS Instance client
-func NewInstanceClient(sess *ibmpisession.IBMPISession, instanceID string) *PowerVSInstance {
+func NewInstanceClient(session *ibmpisession.IBMPISession, instanceID string) *PowerVSInstance {
 	c := &PowerVSInstance{
 		serviceInstanceID: instanceID,
 	}
-	c.instanceClient = instance.NewIBMPIInstanceClient(context.Background(), sess, instanceID)
+	c.instanceClient = instance.NewIBMPIInstanceClient(context.Background(), session, instanceID)
 	return c
 }
 

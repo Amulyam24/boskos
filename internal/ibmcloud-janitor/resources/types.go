@@ -18,6 +18,7 @@ package resources
 
 import (
 	"strings"
+	"time"
 
 	"github.com/IBM-Cloud/power-go-client/power/models"
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -34,9 +35,11 @@ type Resource interface {
 }
 
 type CleanupOptions struct {
-	Resource     *common.Resource
-	Debug        bool
-	IgnoreAPIKey bool
+	Resource               *common.Resource
+	Debug                  bool
+	IgnoreAPIKey           bool
+	CheckPowervsWorkspaces bool
+	AdditionalTime         time.Duration
 }
 
 var PowervsResources = []Resource{
