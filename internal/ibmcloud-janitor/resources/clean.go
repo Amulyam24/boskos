@@ -26,6 +26,11 @@ func CleanAll(options *CleanupOptions) error {
 	if err != nil {
 		return errors.Wrapf(err, "Failed to fetch the list of resources of type %q", options.Resource.Type)
 	}
+
+	if options.CheckPowervsWorkspaces {
+		list = append(list, PowerVSWorkspace{})
+	}
+
 	for _, resource := range list {
 		err = resource.cleanup(options)
 		if err != nil {

@@ -32,11 +32,11 @@ type PowerVSNetwork struct {
 }
 
 // Creates a new PowerVS Network client
-func NewNetworkClient(sess *ibmpisession.IBMPISession, instanceID string) *PowerVSNetwork {
+func NewNetworkClient(session *ibmpisession.IBMPISession, instanceID string) *PowerVSNetwork {
 	c := &PowerVSNetwork{
 		serviceInstanceID: instanceID,
 	}
-	c.networkClient = instance.NewIBMPINetworkClient(context.Background(), sess, instanceID)
+	c.networkClient = instance.NewIBMPINetworkClient(context.Background(), session, instanceID)
 	return c
 }
 

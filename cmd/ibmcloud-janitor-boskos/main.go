@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -32,17 +33,20 @@ import (
 )
 
 var (
-	boskosURL    = flag.String("boskos-url", "", "Boskos URL")
-	rTypes       common.CommaSeparatedStrings
-	username     = flag.String("username", "", "Username used to access the Boskos server")
-	passwordFile = flag.String("password-file", "", "The path to password file used to access the Boskos server")
-	logLevel     = flag.String("log-level", "info", fmt.Sprintf("Log level is one of %v.", logrus.AllLevels))
-	debug        = flag.Bool("debug", false, "Setting it to true allows logs for PowerVS client")
-	ignoreAPIKey = flag.Bool("ignore-api-key", false, "Setting it to true will skip clean up and rotation of API keys")
+	boskosURL              = flag.String("boskos-url", "", "Boskos URL")
+	rTypes                 common.CommaSeparatedStrings
+	username               = flag.String("username", "", "Username used to access the Boskos server")
+	passwordFile           = flag.String("password-file", "", "The path to password file used to access the Boskos server")
+	logLevel               = flag.String("log-level", "info", fmt.Sprintf("Log level is one of %v.", logrus.AllLevels))
+	debug                  = flag.Bool("debug", false, "Setting it to true allows logs for PowerVS client")
+	ignoreAPIKey           = flag.Bool("ignore-api-key", false, "Setting it to true will skip clean up and rotation of API keys")
+	checkPowervsWorkspaces = flag.Bool("check-pvs-workspace-state", false, "Setting it to true will check the PowerVS workspaces for planned maintenace")
+	adiditionTime          = flag.Duration("additional-time", 4*time.Hour, "The additional time added to maintenance widnow for handling PowerVS workspaces.")
 )
 
 const (
-	sleepTime = time.Minute
+	sleepTime            = time.Minute * 5
+	resourceReleaseError = "cannot release resource"
 )
 
 func init() {
@@ -54,19 +58,26 @@ func run(boskos *boskosClient.Client) error {
 	for {
 		for _, resourceType := range rTypes {
 			if res, err := boskos.Acquire(resourceType, common.Dirty, common.Cleaning); errors.Cause(err) == boskosClient.ErrNotFound {
-				logrus.Info("no resource acquired. Sleeping.")
+				logrus.WithField("resource type", resourceType).Info("no dirty resource acquired")
 				time.Sleep(sleepTime)
 				continue
 			} else if err != nil {
-				return errors.Wrap(err, "Couldn't retrieve resources from Boskos")
+				return errors.Wrap(err, "Failed to retrieve a dirty resource from Boskos")
 			} else {
 				options := &resources.CleanupOptions{
-					Resource:     res,
-					Debug:        *debug,
-					IgnoreAPIKey: *ignoreAPIKey,
+					Resource:               res,
+					Debug:                  *debug,
+					IgnoreAPIKey:           *ignoreAPIKey,
+					CheckPowervsWorkspaces: *checkPowervsWorkspaces,
+					AdditionalTime:         *adiditionTime,
 				}
 				if err := resources.CleanAll(options); err != nil {
-					return errors.Wrapf(err, "Couldn't clean resource %q", res.Name)
+					fmt.Println(err.Error())
+					if strings.Contains(err.Error(), resourceReleaseError) {
+						logrus.WithField("name", res.Name).Info("Skip releasing resource as data center is scheduled for planned maintenance, resource will remain dirty")
+						continue
+					}
+					return errors.Wrapf(err, "Failed to clean resource %q", res.Name)
 				}
 				if err := boskos.UpdateOne(res.Name, common.Cleaning, res.UserData); err != nil {
 					return errors.Wrapf(err, "Failed to update resource %q", res.Name)
@@ -77,6 +88,7 @@ func run(boskos *boskosClient.Client) error {
 				logrus.WithField("name", res.Name).Info("Released resource")
 			}
 		}
+
 	}
 }
 
