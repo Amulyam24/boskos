@@ -17,21 +17,26 @@ limitations under the License.
 package resources
 
 import (
-	"time"
+	"fmt"
 
+	"github.com/IBM/ibm-cos-sdk-go/aws"
+	"github.com/IBM/ibm-cos-sdk-go/aws/credentials"
+	"github.com/IBM/ibm-cos-sdk-go/aws/session"
+	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/softlayer/softlayer-go/filter"
-	"github.com/softlayer/softlayer-go/services"
-	"github.com/softlayer/softlayer-go/session"
 	"sigs.k8s.io/boskos/common/ibmcloud"
 )
 
-type PowerVSWorkspace struct{}
-
 const (
-	powerVS string = "PowerVS"
+	accesskey  = ""
+	secretkey  = ""
+	bucketName = ""
+	//authEndpoint    = "https://iam.cloud.ibm.com/identity/token"
+	//serviceEndpoint = "https://s3-api.us-geo.objectstorage.softlayer.net"
 )
+
+type PowerVSWorkspace struct{}
 
 func (n PowerVSWorkspace) cleanup(options *CleanupOptions) error {
 	powervsData, err := ibmcloud.GetPowerVSResourceData(options.Resource)
@@ -39,27 +44,44 @@ func (n PowerVSWorkspace) cleanup(options *CleanupOptions) error {
 		return errors.Wrap(err, "failed to get the resource data")
 	}
 
-	sess := session.New()
-	currentTime := time.Now().UTC()
+	endpoint := fmt.Sprintf("https://s3.%s.cloud-object-storage.appdomain.cloud", powervsData.Region)
 
-	objectMask := `mask[endDate,startDate,statusCode[keyName],notificationOccurrenceEventType[keyName],subject]`
-	objectFilter := filter.Build(
-		filter.Path("notificationOccurrenceEventType.keyName").Eq("PLANNED"),
-		filter.Path("statusCode.keyName").Eq("PUBLISHED"),
-		filter.Path("subject").Contains(powerVS),
-		filter.Path("subject").Contains(powervsData.Zone),
-		filter.Path("startDate").DateBetween(currentTime.Add(time.Duration(-7*24)*time.Hour).String(), currentTime.Add(time.Duration(7*24)*time.Hour).String()))
-	notificationService := services.GetNotificationOccurrenceEventService(sess)
-	events, err := notificationService.Mask(objectMask).Filter(objectFilter).GetAllObjects()
+	conf := aws.NewConfig().
+		WithRegion(powervsData.Region).
+		WithEndpoint(endpoint).
+		WithCredentials(credentials.NewStaticCredentials(accesskey, secretkey, ""))
+
+	sess := session.Must(session.NewSession()) // Creating a new session
+	cosClient := s3.New(sess, conf)
+
+	input := &s3.ListObjectsInput{
+		Bucket: aws.String(bucketName),
+		Prefix: aws.String("cos/"),
+	}
+
+	objectList, err := cosClient.ListObjects(input)
 	if err != nil {
-		return err
+
 	}
 
-	for _, event := range events {
-		if currentTime.After(event.StartDate.Add(-time.Hour*4)) && currentTime.Before(event.StartDate.Add(time.Hour*4)) {
-			return errors.New("cannot release resource as data center is scheduled for planned maintenance")
+	for _, object := range objectList.Contents {
+		input := &s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(*object.Key),
 		}
+		content, err := cosClient.GetObject(input)
+		if err != nil {
+			return err
+		}
+		fmt.Print(content)
+
+		//content.ContentEncoding
 	}
+
+	// 1. create cos client -- input:
+	// 2. List objects in bucket starting with prefix cos/ -- input: bucket name
+	// 3. Download the objects one by one
+	// 4. Parse over the start and end time and decide
 
 	logrus.WithField("name", options.Resource.Name).Info("PowerVS workspace maintenace check is completed and resource can be released")
 

@@ -35,6 +35,7 @@ const (
 type PowerVSResourceData struct {
 	ServiceInstanceID string
 	Zone              string
+	Region            string
 }
 
 type VPCResourceData struct {
@@ -58,9 +59,15 @@ func GetPowerVSResourceData(r *common.Resource) (*PowerVSResourceData, error) {
 		return nil, errors.New("no zone in UserData")
 	}
 
+	region, ok := r.UserData.Map.Load(Region)
+	if !ok {
+		return nil, errors.New("no region in UserData")
+	}
+
 	return &PowerVSResourceData{
 		ServiceInstanceID: sid.(string),
 		Zone:              zone.(string),
+		Region:            region.(string),
 	}, nil
 }
 
