@@ -38,7 +38,7 @@ CONTROLLER_GEN_VER := v0.14.0
 CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(TOOLS_BIN_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
 
-CMDS = $(notdir $(shell find ./cmd/ -maxdepth 1 -type d | sort))
+ALL_CMDS = $(notdir $(shell find ./cmd/ -maxdepth 1 -type d | sort))
 
 export GO_VERSION=1.23.4
 export GO111MODULE=on
@@ -48,8 +48,8 @@ export DOCKER_TAG
 .PHONY: all
 all: build
 
-.PHONY: $(CMDS)
-$(CMDS):
+.PHONY: $(ALL_CMDS)
+$(ALL_CMDS):
 	MINIMUM_GO_VERSION=go$(GO_VERSION) ./hack/ensure-go.sh
 	mkdir -p "$(OUTPUT_BIN_DIR)"
 	go build -o "$(OUTPUT_BIN_DIR)" \
@@ -71,7 +71,7 @@ test: $(GOTESTSUM)
 	$(GOTESTSUM) $${ARTIFACTS:+--junitfile="${ARTIFACTS}/junit.xml"} $(WHAT)
 
 .PHONY: images
-images: $(patsubst %,%-image,$(CMDS))
+images: $(patsubst %,%-image,$(ALL_CMDS))
 
 .PHONY: %-image
 %-image:
