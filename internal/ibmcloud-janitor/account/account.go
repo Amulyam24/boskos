@@ -17,14 +17,14 @@ limitations under the License.
 package account
 
 import (
-	"errors"
 	"os"
 
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/pkg/errors"
 )
 
 const (
-	// File path where API Key is stored
+	// Directory path where API Key is stored
 	APIKeyEnv = "IBMCLOUD_ENV_FILE"
 )
 
@@ -40,13 +40,24 @@ func GetAuthenticator() (core.Authenticator, error) {
 	return auth, nil
 }
 
+// GetAPIkeyValue reads the API key from file present in the directory
+// path passed via environment variable IBMCLOUD_ENV_FILE.
 func GetAPIkeyValue() (string, error) {
-	fileName := os.Getenv(APIKeyEnv)
-	if fileName == "" {
+	dirName := os.Getenv(APIKeyEnv)
+	if dirName == "" {
 		return "", errors.New("please set IBMCLOUD_ENV_FILE, it cannot be empty")
 	}
 
-	key, err := os.ReadFile(fileName)
+	files, err := os.ReadDir(dirName)
+	if err != nil {
+		return "", err
+	}
+
+	if len(files) != 1 {
+		return "", errors.Errorf("expect one file to be present in dir %q", dirName)
+	}
+
+	key, err := os.ReadFile(files[0].Name())
 	if err != nil {
 		return "", err
 	}
